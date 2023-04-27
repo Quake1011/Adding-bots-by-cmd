@@ -1,16 +1,16 @@
-#include <sourcemod>
 #include <cstrike>
-#pragma tabsize 4
-#define MaxBots 5
-int i;
+
+#define BOTS 5
+
 bool bAddBots;
-public OnPluginStart()
+
+public void OnPluginStart()
 {
-    AddCommandListener(botAction, "sm_addbot");
+	RegAdminCmd("sm_addbot", botAction, ADMFLAG_ROOT);
     HookEvent("round_start",Ev_RS);
 }
 
-public OnMapStart()
+public void OnMapStart()
 {
     bAddBots = false;
 }
@@ -18,62 +18,45 @@ public OnMapStart()
 public void OnClientConnected(int client)
 {
 	if(!IsFakeClient(client))
-	{
 		ServerCommand("bot_kick");
-	}
 }
 
-public Action Ev_RS(Handle hEvent, const char[] name, bool bdb)
+public Action Ev_RS(Event hEvent, const char[] name, bool bdb)
 {
-    for(int t = 1;t<MaxClients-1;t++)
+    for(int i = 1; i <= MaxClients; i++)
+        if(IsFakeClient(i) && !IsPlayerAlive(i))
+            CS_RespawnPlayer(i);
+}
+
+public Action botAction(int client, const char[] command, int argc)
+{
+    if(client && IsClientInGame(client) && !IsFakeClient(client))
     {
-        if(IsFakeClient(t)&&!IsPlayerAlive(t))
+        if(!bAddBots && GetClientCount_WithoutBots() == 1)
         {
-            CS_RespawnPlayer(t);
+			bAddBots ^= true;
+			for (i = 0; i < BOTS; i++)
+				ServerCommand("bot_add");
         }
     }
 }
 
-public Action botAction(client, const String:command[], argc)
+public void OnClientDisconnect(int client)
 {
-    if (client && IsClientInGame(client) && !IsFakeClient(client))
+    if(bAddBots && GetClientCount_WithoutBots() < 1)
     {
-        if (!bAddBots)
-        {
-            if (GetClientCount_WithoutBots() == 1)
-            {
-				bAddBots = true;
-                for (i = 0; i < MaxBots; i++)
-                {
-                    ServerCommand("bot_add");
-                }
-            }
-        }
-    }
-}
-
-public void OnClientDisconnect_Post(client)
-{
-    if (bAddBots)
-    {
-        if (GetClientCount_WithoutBots() < 1)
-        {
-            bAddBots = false;
-            ServerCommand("bot_kick");
-        }
+		bAddBots ^= true;
+		ServerCommand("bot_kick");
     }
 }
 
 
-stock GetClientCount_WithoutBots()
+stock int GetClientCount_WithoutBots()
 {
-    new iCounts;
+    int iCounts = 0;
     for(i = 1; i <= MaxClients; i++)
-    {
         if (IsClientInGame(i) && !IsFakeClient(i) && !IsClientSourceTV(i))
-        {
             iCounts++;
-        }
-    }
+	    
     return iCounts;
 }
